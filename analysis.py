@@ -26,9 +26,9 @@ def get_frequencies(species):
         subfamily = r.id.split("_")[2]
         freq[subfamily] = freq.get(subfamily, 0) + 1
     #uncomment these next three lines out if you want the relative frequencies
-#     factor=1.0/sum(freq.values())
-#     for sub in freq:
-#         freq[sub] = freq[sub]*factor
+    # factor=1.0/sum(freq.values())
+    # for sub in freq:
+    #     freq[sub] = freq[sub]*factor
     return freq
 
 #return a list of sequences for a given species and subfamily
@@ -53,7 +53,6 @@ def get_location(description):
     location = description.split(' ')[1].split(':')
     start, end = location[1].split('-')
     return [location[0].split("=")[1], int(start), int(end)]
-
 
 def generate_pairings(species, subfamily="AluJo"):
     # print(species)
