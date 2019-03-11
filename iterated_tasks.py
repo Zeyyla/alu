@@ -70,7 +70,7 @@ if __name__ == "__main__":
     for task in tasks:
         if not task.finished():
             # if task.species1 == "Humans" or task.species2 == "Humans":
-            if task.species1 == "Humans" and task.completed < 500:
+            if task.species1 == "Humans":
                 tasks_to_run.append(task)
     while len(tasks_to_run) > 0:
         with mp.Pool(mp.cpu_count() - 1) as p:
