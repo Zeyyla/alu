@@ -65,12 +65,13 @@ def run_task(task):
 if __name__ == "__main__":
     # lock = mp.Lock()
     tasks = [pickle.load(file=open("tasks/" + f, "rb")) for f in listdir("tasks")]
+    average = np.average(t.completed for t in tasks)
     #filter tasks here if you want to split up computing
     tasks_to_run = []
     for task in tasks:
         if not task.finished():
             # if task.species1 == "Humans" or task.species2 == "Humans":
-            if task.species1 == "Humans":
+            if task.completed < average:
                 tasks_to_run.append(task)
     while len(tasks_to_run) > 0:
         with mp.Pool(mp.cpu_count() - 1) as p:
