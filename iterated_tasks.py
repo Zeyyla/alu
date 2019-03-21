@@ -18,6 +18,7 @@ from os import listdir
 from itertools import combinations
 import pickle
 from tqdm import tqdm
+import edlib
 
 class Task():
     def __init__(self,task):
@@ -42,13 +43,14 @@ def get_location(description):
     return [location[0].split("=")[1], int(start), int(end)]
 
 def run_task(task):
-    batch_size = min(30, task.remaining())
+    batch_size = min(20, task.remaining())
     # print(data)
     species1_records = pickle.load(open("data/" + task.species1 + "/" + task.species1 + "_" + task.subfamily + ".p", "rb"))[task.completed:task.completed+batch_size]
     species2_records = pickle.load(open("data/" + task.species2 + "/" + task.species2 + "_" + task.subfamily + ".p", "rb"))
     datas = []
     for sequence1 in species1_records:
-        matches = [editdistance.eval(str(sequence1.seq), str(sequence2.seq)) for sequence2 in species2_records]
+        # matches = [editdistance.eval(str(sequence1.seq), str(sequence2.seq)) for sequence2 in species2_records]
+        matches = [edlib.align(str(sequence1.seq), str(sequence2.seq), task = "editDistance")["editDistance"] for sequence2 in species2_records]
         min_index = np.argmin(matches)
         match = species2_records[min_index]
         location1 = get_location(sequence1.description)
@@ -56,6 +58,7 @@ def run_task(task):
         data = np.concatenate([location1, location2, [matches[min_index]], [abs(location1[1] - location2[1])], [str(sequence1.seq)], [str(match.seq)]])
         datas.append(data)
     task.completed += batch_size
+    # print("completed {} matches for {} - {} - {}".format(batch_size, task.species1, task.species2, task.subfamily))
     with open("results/" + task.filename() + ".csv", 'a+', newline='') as file:
         wr = csv.writer(file, quoting=csv.QUOTE_ALL)
         wr.writerows(datas)
@@ -63,17 +66,23 @@ def run_task(task):
     return task
 
 if __name__ == "__main__":
-    # lock = mp.Lock()
+        # lock = mp.Lock()
     tasks = [pickle.load(file=open("tasks/" + f, "rb")) for f in listdir("tasks")]
-    average = np.average(t.completed for t in tasks)
-    #filter tasks here if you want to split up computing
+    average = np.median([t.completed for t in tasks])
+    # filter tasks here if you want to split up computing
     tasks_to_run = []
     for task in tasks:
+        # print("{} - {} - {}: {} / {}".format(task.species1, task.species2, task.subfamily, task.completed, task.total))
         if not task.finished():
-            # if task.species1 == "Humans" or task.species2 == "Humans":
-            if task.completed < average:
-                tasks_to_run.append(task)
+            if task.species1 != "Humans" and task.species2 != "Humans":
+                if task.completed <= average:
+                    tasks_to_run.append(task)
+    tasks_to_run.sort(key=lambda task: task.completed)
+        # average = np.average([t.completed for t in tasks_to_run])
+        # print(average)
+    tasks_to_run = tasks_to_run[:100]
     while len(tasks_to_run) > 0:
-        with mp.Pool(mp.cpu_count() - 1) as p:
+        with mp.Pool(mp.cpu_count() - 2) as p:
             tasks_to_run = list(tqdm(p.imap(func=run_task, iterable=tasks_to_run),total=len(tasks_to_run),unit="batches"))
-            tasks_to_run = [task for task in tasks_to_run if not task.finished()]
+            # tasks_to_run = list(p.imap(func=run_task, iterable=tasks_to_run))
+            tasks_to_run = [task for task in tasks_to_run if not task.finished()]          
