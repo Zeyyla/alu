@@ -47,8 +47,8 @@ def run_task(task):
     datas = []
     for sequence1 in species1_records:
         # matches = [editdistance.eval(str(sequence1.seq), str(sequence2.seq)) for sequence2 in species2_records]
-        k = 300
-        match = ""
+        k = 10**9 #approx number of base pairs in human genome
+        match = None
         for sequence2 in species2_records:
             k_new = edlib.align(str(sequence1.seq), str(sequence2.seq), task = "editDistance", k = k)["editDistance"]
             if k_new != -1 and k_new < k:
@@ -56,10 +56,11 @@ def run_task(task):
                 k = k_new
         # min_index = np.argmin(matches)
         # match = species2_records[min_index]
-        location1 = get_location(sequence1.description)
-        location2 = get_location(match.description)
-        data = np.concatenate([location1, location2, [k], [abs(location1[1] - location2[1])]])
-        datas.append(data)
+        if match is not None:
+            location1 = get_location(sequence1.description)
+            location2 = get_location(match.description)
+            data = np.concatenate([location1, location2, [k], [abs(location1[1] - location2[1])]])
+            datas.append(data)
     # print(datas)
     task.completed += batch_size
     with open("results/" + task.filename() + ".csv", 'a+', newline='') as file:
