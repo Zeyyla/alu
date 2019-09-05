@@ -34,10 +34,14 @@ def cycle(tasks):
                 yield task
 def queue(tasks):
     while True:
+        np.random.shuffle(tasks)
         for f in tasks:
-            task = pickle.load(file=open("tasks/" + f, "rb"))
-            if not task.finished():
-                yield task
+            try:
+                task = pickle.load(file=open("tasks/" + f, "rb"))
+                if not task.finished():
+                    yield task
+            except:
+                print("error with: " + str(f))
 def run_task(task):
     ts = time.time()
     batch_size = min(50, task.remaining())
@@ -87,7 +91,7 @@ if __name__ == "__main__":
         # print(average)
     # tasks_to_run = tasks_to_run[:100]
     # while len(tasks_to_run) > 0:
-    with mp.Pool(mp.cpu_count() - 2) as p:
+    with mp.Pool(mp.cpu_count()//2) as p:
         tasks_to_run = p.imap(func=run_task, iterable=queue(listdir("tasks")))
         # tasks_to_run = list(p.imap(func=run_task, iterable=tasks_to_run))
         # tasks_to_run = [task for task in tasks_to_run if not task.finished()]
