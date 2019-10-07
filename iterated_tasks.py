@@ -15,7 +15,6 @@ import multiprocessing as mp
 import time
 # import timeit
 from os import listdir
-from itertools import combinations
 import pickle
 # from tqdm import tqdm
 import edlib
@@ -66,7 +65,7 @@ def run_task(task):
             data = np.concatenate([location1, location2, [k], [abs(location1[1] - location2[1])]])
             datas.append(data)
     # print(datas)
-    task.completed += batch_size
+    task.update(batch_size)
     with open("results/" + task.filename() + ".csv", 'a+', newline='') as file:
         wr = csv.writer(file, quoting=csv.QUOTE_ALL)
         wr.writerows(datas)
