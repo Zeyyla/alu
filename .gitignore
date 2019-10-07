@@ -1,3 +1,11 @@
 .ipynb_checkpoints
 .DS_Store
 /data
+/__pycache___
+/.bio
+/.vscode
+~$*
+vbaProject.bin
+awscrendentials.txt
+/results
+*.pyc
