@@ -72,27 +72,3 @@ def run_task(task):
     pickle.dump(task, open("tasks/"+task.filename(), "wb"))
     print("completed {} matches for {} - {} - {} at {} seconds/match".format(batch_size, task.species1, task.species2, task.subfamily, round((time.time()-ts)/batch_size, 3)))
     return task
-
-if __name__ == "__main__":
-        # lock = mp.Lock()
-    # tasks = [pickle.load(file=open("tasks/" + f, "rb")) for f in listdir("tasks")]
-    # average = np.median([t.completed for t in tasks])
-    # filter tasks here if you want to split up computing
-    # tasks_to_run = []
-    # for task in tasks:
-    #     # print("{} - {} - {}: {} / {}".format(task.species1, task.species2, task.subfamily, task.completed, task.total))
-    #     if not task.finished():
-    #         if task.species1 != "Humans" and task.species2 != "Humans":
-    #             # if task.completed <= average:
-    #             tasks_to_run.append(task)
-    # tasks_to_run.sort(key=lambda task: task.completed)
-        # average = np.average([t.completed for t in tasks_to_run])
-        # print(average)
-    # tasks_to_run = tasks_to_run[:100]
-    # while len(tasks_to_run) > 0:
-    with mp.Pool(mp.cpu_count()//2) as p:
-        tasks_to_run = p.imap(func=run_task, iterable=queue(listdir("tasks")))
-        # tasks_to_run = list(p.imap(func=run_task, iterable=tasks_to_run))
-        # tasks_to_run = [task for task in tasks_to_run if not task.finished()]
-        for t in tasks_to_run:
-            pass
