@@ -20,13 +20,13 @@ def get_location(description):
     start, end = location[1].split('-')
     return [location[0].split("=")[1], int(start), int(end)]
 
-def run_task(awsTask, results_url, ACCESS_KEY, SECRET_KEY):
+def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY):
     ts = time.time()
     batch_size = min(50, task.remaining())
     # print(data)
-    species1_records = pickle.load(open("data/" + awsTask.species1 + "/" + awsTask.species1 + "_" + awsTask.subfamily + ".p", "rb"))
-    species2_records = pickle.load(open("data/" + awsTask.species2 + "/" + awsTask.species2 + "_" + awsTask.subfamily + ".p", "rb"))
-    for i in awsTask.indicies:
+    species1_records = pickle.load(open("data/" + awstask.species1 + "/" + awstask.species1 + "_" + awstask.subfamily + ".p", "rb"))
+    species2_records = pickle.load(open("data/" + awstask.species2 + "/" + awstask.species2 + "_" + awstask.subfamily + ".p", "rb"))
+    for i in awstask.indicies:
         sequence1 = species1_records[i]
         k = 0
         match = None
@@ -38,26 +38,25 @@ def run_task(awsTask, results_url, ACCESS_KEY, SECRET_KEY):
         if match is not None:
             location1 = get_location(sequence1.description)
             location2 = get_location(match.description)
-            data = np.concatenate([location1, location2, [k], [abs(location1[1] - location2[1])]])
-            awsTask.datas.append(data)
-    msg = pickle.dumps(awsTask)
+            data = np.concatenate([[i], location1, location2, [k]])
+            awstask.datas.append(data)
+    msg = pickle.dumps(awstask)
     sqs = boto3.resource('sqs', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY)
     sqs.send_message(QueueUrl=results_url, MessageBody=msg)
 
-def taskProcess(crendentials):
+def taskProcess(credentials):
     while True:
-        sqs = boto3.client('sqs', aws_access_key_id=crendentials['aws_access_key_id'], aws_secret_access_key=crendentials['aws_secret_access_key'])
+        sqs = boto3.client('sqs', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'])
         response = sqs.receive_message(QueueUrl=task_url, MaxNumberOfMessages=1, VisibilityTimeout=20, WaitTimeSeconds=10)
         awsTask = pickle.loads(response['Messages'][0]['Body'])
-        sqs.delete_message(QueueUrl=task_url, ReceiptHandle=response['Messages'][0]['ReceiptHandle'])
-        #get from dict
-        run_task(awsTask, results_url, ACCESS_KEY, SECRET_KEY)
+        sqs.delete_message(QueueUrl=credentials['task_url'], ReceiptHandle=response['Messages'][0]['ReceiptHandle'])
+        run_task(awsTask, credentials['results_url'], credentials['aws_access_key_id'], credentials['aws_secret_access_key'])
 
-def verify_local_data(crendentials, dataPath = "data/"):
+def verify_local_data(credentials, dataPath = "data/"):
     if dataPath[-1] != "/":
         dataPath += "/"
     
-    s3 = boto3.resource('s3', aws_access_key_id=crendentials['aws_access_key_id'], aws_secret_access_key=crendentials['aws_secret_access_key'])
+    s3 = boto3.resource('s3', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'])
     aludata = s3.Bucket('aludata')
     if not path.exists(dataPath):
         mkdir(dataPath)
@@ -89,7 +88,7 @@ if __name__ == "__main__":
     verify_local_data(credentials, dataPath)
     processes = []
     #initialize all processes, then iterate and start
-    # for i in range(mp.cpu_count()):
-    #     processes[i] = mp.Process(target=taskProcess, args=)
+    for i in range(1): #mp.cpu_count()):
+        processes[i] = mp.Process(target=taskProcess, args=credentialFile)
 
     #test for full CPU utilization
