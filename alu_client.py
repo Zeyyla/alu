@@ -2,16 +2,16 @@
 # coding: utf-8
 #TODO: minify imports with as
 import numpy as np
-import csv
 import multiprocessing as mp
-import time
 from os import mkdir, path, listdir
 import pickle
-from Task import Task, SPECIES
+from Task import Task, awsTask, SPECIES
 import boto3
 from sys import exit
-import argparse
+# import argparse
 import json
+# from skbio.alignment import StripedSmithWaterman
+from Bio import Align
 
 #TODO: test with same credentials on computer
 
@@ -21,15 +21,13 @@ def get_location(description):
     return [location[0].split("=")[1], int(start), int(end)]
 
 def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY):
-    ts = time.time()
-    batch_size = min(50, task.remaining())
-    # print(data)
     species1_records = pickle.load(open("data/" + awstask.species1 + "/" + awstask.species1 + "_" + awstask.subfamily + ".p", "rb"))
     species2_records = pickle.load(open("data/" + awstask.species2 + "/" + awstask.species2 + "_" + awstask.subfamily + ".p", "rb"))
     for i in awstask.indicies:
         sequence1 = species1_records[i]
         k = 0
         match = None
+        w = StripedSmithWaterman(str(sequence1.seq), score_only=True)
         for sequence2 in species2_records:
             k_new = w(str(sequence2.seq))["optimal_alignment_score"]
             if k_new > k:
@@ -38,19 +36,23 @@ def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY):
         if match is not None:
             location1 = get_location(sequence1.description)
             location2 = get_location(match.description)
-            data = np.concatenate([[i], location1, location2, [k]])
+            data = list(np.concatenate([[i], location1, location2, [k]]))
             awstask.datas.append(data)
-    msg = pickle.dumps(awstask)
-    sqs = boto3.resource('sqs', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY)
-    sqs.send_message(QueueUrl=results_url, MessageBody=msg)
+    print("Completed task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
+    print("Pushing now...")
+    msg = json.dumps(awstask)
+    sqs = boto3.client('sqs', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY)
+    # sqs.send_message(QueueUrl=results_url, MessageBody=msg)
 
 def taskProcess(credentials):
     while True:
         sqs = boto3.client('sqs', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'])
-        response = sqs.receive_message(QueueUrl=task_url, MaxNumberOfMessages=1, VisibilityTimeout=20, WaitTimeSeconds=10)
-        awsTask = pickle.loads(response['Messages'][0]['Body'])
-        sqs.delete_message(QueueUrl=credentials['task_url'], ReceiptHandle=response['Messages'][0]['ReceiptHandle'])
-        run_task(awsTask, credentials['results_url'], credentials['aws_access_key_id'], credentials['aws_secret_access_key'])
+        response = sqs.receive_message(QueueUrl=credentials['task_url'], MaxNumberOfMessages=1, VisibilityTimeout=3600, WaitTimeSeconds=20)
+        awstask = awstask(json.loads(response['Messages'][0]['Body']))
+        print("Recieved task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
+        run_task(awstask, credentials['results_url'], credentials['aws_access_key_id'], credentials['aws_secret_access_key'])
+        # sqs.delete_message(QueueUrl=credentials['task_url'], ReceiptHandle=response['Messages'][0]['ReceiptHandle'])
+        print("Task complete and deleted")
 
 def verify_local_data(credentials, dataPath = "data/"):
     if dataPath[-1] != "/":
@@ -74,9 +76,9 @@ def verify_local_data(credentials, dataPath = "data/"):
     filelist = {file for species_list in [listdir(dataPath + s) for s in SPECIES] for file in species_list}
     uploaded = {file.key for file in aludata.objects.all()}
     if filelist == uploaded:
-        print("All server data has been verified")
+        print("All local data has been verified")
     else:
-        print("Error in verifying server data")
+        print("Error in verifying local data")
         exit()
 
 #TODO: Argument parsing https://stackabuse.com/command-line-arguments-in-python/
@@ -87,8 +89,9 @@ if __name__ == "__main__":
         credentials = json.load(f)
     verify_local_data(credentials, dataPath)
     processes = []
-    #initialize all processes, then iterate and start
-    for i in range(1): #mp.cpu_count()):
-        processes[i] = mp.Process(target=taskProcess, args=credentialFile)
+    # initialize all processes, then iterate and start
+    for i in range(1) #mp.cpu_count()//2 - 1):
+        processes.append(mp.Process(target=taskProcess, args=[credentials]))
 
-    #test for full CPU utilization
+    for p in processes:
+        p.start()
