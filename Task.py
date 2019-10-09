@@ -1,5 +1,6 @@
 import pickle
 import random
+import awsTask 
 from copy import deepcopy
 
 class Task():
@@ -12,24 +13,38 @@ class Task():
         self.remaining = {i for i in range(self.total)}
         self.candidates = {i for i in range(self.total)}
         self.subsection = subsection
+
     def filename(self):
         if self.subsection is None:
             return self.species1 + "_" + self.species2 + "_" + self.subfamily + ".p"
         else:
             return self.species1 + "_" + self.species2 + "_" + self.subfamily + "_" + str(self.subsection) + ".p"
+
     def update(self,awsTask):
         self.completed.update(awsTask.indicies)
         self.remaining.difference_update(awsTask.indicies)
+
     def num_completed(self):
         return len(self.completed)
+
     def num_remaining(self):
         return len(self.remaining)
-    def get_indicies(self, size):
-        if size > self.num_remaining():
-            return list(self.completed)
-        indicies = random.sample(self.remaining, size)
+
+    # def get_indicies(self, size):
+    #     if size > self.num_remaining():
+    #         return list(self.completed)
+    #     indicies = random.sample(self.remaining, size)
+    #     candidates.difference_update(indicies)
+    #     return indicies
+
+    def get_aws_task(self, size): 
+        if size > self.num_remaining(): 
+            indicies = list(self.completed)
+        else: 
+            indicies = random.sample(self.remaining, size)
         candidates.difference_update(indicies)
-        return indicies
+        return awsTask(self, indices)   
+
     def __eq__(obj):
         return (self.species1 == obj.species1) & (self.species2 == obj.species2) & (self.subfamily == obj.subfamily)
 
