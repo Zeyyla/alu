@@ -9,3 +9,4 @@ vbaProject.bin
 awscrendentials.txt
 /results
 *.pyc
+*.json
