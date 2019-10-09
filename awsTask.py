@@ -1,5 +1,3 @@
-from Task import Task
-
 class awsTask():
     def __init__(self, Task, indicies):
         self.species1 = Task.species1
