@@ -1,17 +1,19 @@
 import pickle
 import random 
-from copy import deepcopy
 import Bio
 
+SPECIES = ['Greens', 'Gorillas', 'Orangutans', 'Bushbaby', 'Humans', 'Bonobos', 'Rhesuses', 'Marmosets', 'Squirrels', 'Goldens', 'Mouses', 'Baboons', 'Chimps']
+SUBFAMILIES = ["AluJb", "AluJo", "AluJr", "AluJr4", "AluSc", "AluSc5", "AluSc8", "AluSg", "AluSg4", "AluSg7", "AluSp", "AluSq", "AluSq10", "AluSq2", "AluSq4", "AluSx", "AluSx1", "AluSx3", "AluSx4", "AluSz", "AluSz6", "AluY"]
+
 class Task():
-    def __init__(self, species1, species2, subfamily):
+    def __init__(self, species1, species2, subfamily, total = None, completed = None, remaining = None, candidates = None):
         self.species1 = species1
         self.species2 = species2
         self.subfamily = subfamily
-        self.total = len(pickle.load(file=open("data/"+self.species1 + "/" + self.species1+"_"+self.subfamily + ".p", "rb")))
-        self.completed = set()
-        self.remaining = {i for i in range(self.total)}
-        self.candidates = {i for i in range(self.total)}
+        self.total = total or len(pickle.load(file=open("data/"+self.species1 + "/" + self.species1+"_"+self.subfamily + ".p", "rb")))
+        self.completed = completed or set()
+        self.remaining = remaining or {i for i in range(self.total)}
+        self.candidates = candidates or {i for i in range(self.total)}
 
     def filename(self):
         return self.species1 + "_" + self.species2 + "_" + self.subfamily + ".p"
@@ -35,29 +37,28 @@ class Task():
         else: 
             indicies = random.sample(self.remaining, size)
         self.candidates.difference_update(indicies)
-        return awsTask(self, indicies)   
+        return awsTask.fromTask(self, indicies)   
 
     def aws_to_task(awstask):
         """Return filename extracted from an awsTask object"""
         return awstask.species1 + "_" + awstask.species2 + "_" + awstask.subfamily + ".p"
 
+    def fromTask(task):
+        return Task(task.species1, task.species2, task.subfamily, task.total, task.completed, task.remaining, task.candidates)
+    
     def __eq__(obj):
         return (self.species1 == obj.species1) & (self.species2 == obj.species2) & (self.subfamily == obj.subfamily)
 
 class awsTask():
-    def __init__(self, Task, indicies):
-        self.species1 = Task.species1
-        self.species2 = Task.species2
-        self.subfamily = Task.subfamily
+    def __init__(self, species1, species2, subfamily, indicies, datas = []):
+        self.species1 = species1
+        self.species2 = species2
+        self.subfamily = subfamily
         self.indicies = indicies
-        self.datas = []
+        self.datas = datas
 
-    def __init__(self, d):
-        self.species1 = d['species1']
-        self.species2 = d['species2']
-        self.subfamily = d['subfamily']
-        self.indicies = d['indicies']
-        self.datas = d['datas']
+    def fromDict(d):
+        return awsTask(d['species1'], d['species2'], d['subfamily'], d['indicies'], d['datas'])
+    def fromTask(task, indicies):
+        return awsTask(task.species1, task.species2, task.subfamily, indicies)
 
-SPECIES = ['Greens', 'Gorillas', 'Orangutans', 'Bushbaby', 'Humans', 'Bonobos', 'Rhesuses', 'Marmosets', 'Squirrels', 'Goldens', 'Mouses', 'Baboons', 'Chimps']
-SUBFAMILIES = ["AluJb", "AluJo", "AluJr", "AluJr4", "AluSc", "AluSc5", "AluSc8", "AluSg", "AluSg4", "AluSg7", "AluSp", "AluSq", "AluSq10", "AluSq2", "AluSq4", "AluSx", "AluSx1", "AluSx3", "AluSx4", "AluSz", "AluSz6", "AluY"]

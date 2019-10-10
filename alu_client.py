@@ -10,8 +10,8 @@ import boto3
 from sys import exit
 # import argparse
 import json
-# from skbio.alignment import StripedSmithWaterman
-from Bio import Align
+from skbio.alignment import StripedSmithWaterman
+# from Bio import Align
 
 #TODO: test with same credentials on computer
 
@@ -38,27 +38,31 @@ def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY):
             location2 = get_location(match.description)
             data = list(np.concatenate([[i], location1, location2, [k]]))
             awstask.datas.append(data)
-    print("Completed task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
-    print("Pushing now...")
-    msg = json.dumps(awstask)
-    sqs = boto3.client('sqs', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY)
-    # sqs.send_message(QueueUrl=results_url, MessageBody=msg)
+    print("Completed task: {} - {} - {} with {} indicies. Pushing now...".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
+    msg = json.dumps(awstask.__dict__)
+    sqs = boto3.client('sqs', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY, region_name="us-east-2")
+    response = sqs.send_message(QueueUrl=results_url, MessageBody=msg)
+    print("\tTask pushed with messageID: {}".format(response['MessageId']))
 
 def taskProcess(credentials):
     while True:
-        sqs = boto3.client('sqs', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'])
+        sqs = boto3.client('sqs', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'], region_name="us-east-2")
         response = sqs.receive_message(QueueUrl=credentials['task_url'], MaxNumberOfMessages=1, VisibilityTimeout=3600, WaitTimeSeconds=20)
-        awstask = awstask(json.loads(response['Messages'][0]['Body']))
+        awstask = awsTask.fromDict(json.loads(response['Messages'][0]['Body']))
         print("Recieved task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
         run_task(awstask, credentials['results_url'], credentials['aws_access_key_id'], credentials['aws_secret_access_key'])
-        # sqs.delete_message(QueueUrl=credentials['task_url'], ReceiptHandle=response['Messages'][0]['ReceiptHandle'])
-        print("Task complete and deleted")
+        sqs.delete_message(QueueUrl=credentials['task_url'], ReceiptHandle=response['Messages'][0]['ReceiptHandle'])
+        print("\tTask complete and deleted")
+
+
+
+    
 
 def verify_local_data(credentials, dataPath = "data/"):
     if dataPath[-1] != "/":
         dataPath += "/"
     
-    s3 = boto3.resource('s3', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'])
+    s3 = boto3.resource('s3', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'], region_name="us-east-2")
     aludata = s3.Bucket('aludata')
     if not path.exists(dataPath):
         mkdir(dataPath)
@@ -90,8 +94,9 @@ if __name__ == "__main__":
     verify_local_data(credentials, dataPath)
     processes = []
     # initialize all processes, then iterate and start
-    for i in range(1) #mp.cpu_count()//2 - 1):
-        processes.append(mp.Process(target=taskProcess, args=[credentials]))
+    # for i in range(mp.cpu_count()//2 - 1):
+    #     processes.append(mp.Process(target=taskProcess, args=[credentials]))
 
-    for p in processes:
-        p.start()
+    # for p in processes:
+    #     p.start()
+    taskProcess(credentials)
