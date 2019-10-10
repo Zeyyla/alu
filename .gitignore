@@ -8,5 +8,6 @@ __pycache___/*
 vbaProject.bin
 awscrendentials.txt
 results/
+old/
 *.pyc
 *.json
