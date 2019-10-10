@@ -11,7 +11,7 @@ from sys import exit
 # import argparse
 import json
 from skbio.alignment import StripedSmithWaterman
-# from Bio import Align
+from tqdm import tqdm
 
 #TODO: test with same credentials on computer
 
@@ -20,7 +20,7 @@ def get_location(description):
     start, end = location[1].split('-')
     return [location[0].split("=")[1], int(start), int(end)]
 
-def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY):
+def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY, pb):
     species1_records = pickle.load(open("data/" + awstask.species1 + "/" + awstask.species1 + "_" + awstask.subfamily + ".p", "rb"))
     species2_records = pickle.load(open("data/" + awstask.species2 + "/" + awstask.species2 + "_" + awstask.subfamily + ".p", "rb"))
     for i in awstask.indicies:
@@ -38,25 +38,26 @@ def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY):
             location2 = get_location(match.description)
             data = list(np.concatenate([[i], location1, location2, [k]]))
             awstask.datas.append(data)
-    print("Completed task: {} - {} - {} with {} indicies. Pushing now...".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
+            pb.update(1)
+    # print("Completed task: {} - {} - {} with {} indicies. Pushing now...".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
     msg = json.dumps(awstask.__dict__)
     sqs = boto3.client('sqs', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY, region_name="us-east-2")
     response = sqs.send_message(QueueUrl=results_url, MessageBody=msg)
-    print("\tTask pushed with messageID: {}".format(response['MessageId']))
+    # print("\tTask pushed with messageID: {}".format(response['MessageId']))
+    return response['MessageId']
 
-def taskProcess(credentials):
+def taskProcess(credentials, pos):
     while True:
         sqs = boto3.client('sqs', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'], region_name="us-east-2")
         response = sqs.receive_message(QueueUrl=credentials['task_url'], MaxNumberOfMessages=1, VisibilityTimeout=3600, WaitTimeSeconds=20)
         awstask = awsTask.fromDict(json.loads(response['Messages'][0]['Body']))
-        print("Recieved task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
-        run_task(awstask, credentials['results_url'], credentials['aws_access_key_id'], credentials['aws_secret_access_key'])
-        sqs.delete_message(QueueUrl=credentials['task_url'], ReceiptHandle=response['Messages'][0]['ReceiptHandle'])
-        print("\tTask complete and deleted")
-
-
-
-    
+        # print("Recieved task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
+        desc = "{} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies))
+        with tqdm(total=len(awstask.indicies), position=pos, desc=desc, unit="match") as pb:
+            messageID = run_task(awstask, credentials['results_url'], credentials['aws_access_key_id'], credentials['aws_secret_access_key'], pb)
+            sqs.delete_message(QueueUrl=credentials['task_url'], ReceiptHandle=response['Messages'][0]['ReceiptHandle'])
+            pb.set_description("Pushed {} - {} - {} with messageID: {}".format(awstask.species1, awstask.species2, awstask.subfamily, messageID))
+            # print("\tTask complete and deleted") 
 
 def verify_local_data(credentials, dataPath = "data/"):
     if dataPath[-1] != "/":
@@ -94,9 +95,8 @@ if __name__ == "__main__":
     verify_local_data(credentials, dataPath)
     processes = []
     # initialize all processes, then iterate and start
-    # for i in range(mp.cpu_count()//2 - 1):
-    #     processes.append(mp.Process(target=taskProcess, args=[credentials]))
+    for i in range(mp.cpu_count()//2 - 1):
+        processes.append(mp.Process(target=taskProcess, args=(credentials, i)))
 
-    # for p in processes:
-    #     p.start()
-    taskProcess(credentials)
+    for p in processes:
+        p.start()
