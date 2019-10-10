@@ -151,6 +151,7 @@ if __name__ == "__main__":
         print("We have {} completed tasks waiting.".format(approxQueueSize))
         if approxQueueSize < 100:
             print("Waiting for more responses...")
+            #TODO: estimate time till a decent number of tasks and then sleep (some weighted rate calculation)
             time.sleep(30)
         else:
             for _ in range(approxQueueSize//10):
