@@ -12,8 +12,10 @@ from sys import exit
 import json
 from skbio.alignment import StripedSmithWaterman
 from tqdm import tqdm
+import heapq as hq
 
 #TODO: test with same credentials on computer
+
 
 def get_location(description):
     location = description.split(' ')[1].split(':')
@@ -21,24 +23,30 @@ def get_location(description):
     return [location[0].split("=")[1], int(start), int(end)]
 
 def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY, pb):
+    k_heap = []
+    heapq.heapify(k_heap) 
     species1_records = pickle.load(open("data/" + awstask.species1 + "/" + awstask.species1 + "_" + awstask.subfamily + ".p", "rb"))
     species2_records = pickle.load(open("data/" + awstask.species2 + "/" + awstask.species2 + "_" + awstask.subfamily + ".p", "rb"))
     for i in awstask.indicies:
         sequence1 = species1_records[i]
-        k = 0
-        match = None
         w = StripedSmithWaterman(str(sequence1.seq), score_only=True)
         for sequence2 in species2_records:
             k_new = w(str(sequence2.seq))["optimal_alignment_score"]
-            if k_new > k:
-                match = sequence2
-                k = k_new
-        if match is not None:
+            match = sequence2    
+            if not k_heap: 
+                hq.heappush(k_heap, (k_new, match))
+            else: 
+                min_k = min(k_heap)[0]
+                if k_new > min_k:
+                    hq.heapreplace(k_heap, (k_new, match))
+        if k_heap: 
+            data = [[i], location1]
             location1 = get_location(sequence1.description)
-            location2 = get_location(match.description)
-            data = list(np.concatenate([[i], location1, location2, [k]]))
-            awstask.datas.append(data)
-            pb.update(1)
+            for k in reversed(k_heap):
+                location2 = get_location(k[1].description)
+                data.append(np.concatenate([location2, [k]]))
+        awstask.datas.append(list(np.concatenate(data)))
+        pb.update(1)
     # print("Completed task: {} - {} - {} with {} indicies. Pushing now...".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
     msg = json.dumps(awstask.__dict__)
     sqs = boto3.client('sqs', aws_access_key_id=ACCESS_KEY, aws_secret_access_key=SECRET_KEY, region_name="us-east-2")
