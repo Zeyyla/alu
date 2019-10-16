@@ -115,7 +115,7 @@ if __name__ == "__main__":
     credentialFile = "awscredentials.json"
     with open(credentialFile, "r") as f:
         credentials = json.load(f)
-    # verify_local_data(credentials, dataPath)
+    verify_local_data(credentials, dataPath)
 
     # initialize all processes, then iterate and start
     processes = []
