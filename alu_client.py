@@ -66,6 +66,7 @@ def taskProcess(credentials, pos):
             # print("\tTask complete and deleted") 
 
 def verify_local_data(credentials, dataPath = "data/"):
+
     if dataPath[-1] != "/":
         dataPath += "/"
 
@@ -74,16 +75,28 @@ def verify_local_data(credentials, dataPath = "data/"):
     
     s3 = boto3.resource('s3', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'], region_name="us-east-2")
     aludata = s3.Bucket('aludata')
+
+    def download_data():
+        print("Downloading data.zip from AWS.")
+        import shutil
+        shutil.rmtree(dataPath)
+        mkdir(dataPath)
+        from zipfile import ZipFile
+        dataFile = aludata.Object("data.zip")
+        with tqdm(total=dataFile.content_length, unit='B', unit_scale=True, desc="data.zip") as t:
+            aludata.download_file("data.zip", path.join(dataPath, "data.zip"), callback=t.update)
+        with ZipFile(path.join(dataPath, "data.zip"), "r") as zip_file:
+            zip_file.extractall(dataPath)
+        print("New data extraction complete.")   
     
     #download json form server
+    print("Downloading data_strucutre.json")
     aludata.download_file("data_structure.json", dataPath + "/data_structure.json")
     fileDict = json.load(open(dataPath + "/data_structure.json", "r"))
     
     #check if json matches filepaths
     download = False
-    for s in tqdm(SPECIES, desc="Progress verifying species:",position=0):
-        if download:
-            break
+    for s in tqdm(SPECIES, desc="Checking if files exist:",position=0):
         if not path.exists(dataPath + s):
             download = True
             break
@@ -91,21 +104,28 @@ def verify_local_data(credentials, dataPath = "data/"):
             filePath = path.join(dataPath, s, file)
             if not path.exists(filePath):
                 download = True
-                break
+
+
+    if download:
+        print("Missing data files")
+        download_data()
+        return
+
+    print("All files exist. Verifying file sizes.")
+
+    for s in tqdm(SPECIES, desc="Progress verifying files:",position=0):
+        if download:
+            break
+        for file, size in tqdm(zip(fileDict[s]['names'], fileDict[s]['lens']), desc=s, position=1, leave=False, total=len(fileDict[s]['names'])):
+            filePath = path.join(dataPath, s, file)
             if len(pickle.load(open(filePath, "rb"))) != size:
                 download = True
                 break
     
     if download:
-        print("Missing or malformed local data. Deleting and redownloading")
-        import shutil
-        shutil.rmtree(dataPath)
-        mkdir(dataPath)
-        from zipfile import ZipFile
-        aludata.download_file("data.zip", path.join(dataPath, "data.zip"))
-        with ZipFile(path.join(dataPath, "data.zip"), "r") as zip_file:
-            zip_file.extractall(dataPath)
-        #unzip
+        print("Malformed local data. Deleting and redownloading")
+        download_data()
+        return
     
     print("All local data has been verified")
 
