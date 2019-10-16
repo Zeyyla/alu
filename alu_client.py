@@ -3,7 +3,7 @@
 #TODO: minify imports with as
 import numpy as np
 import multiprocessing as mp
-from os import mkdir, path, listdir
+from os import mkdir, rmdir, path, listdir
 import pickle
 from Task import Task, awsTask, SPECIES
 import boto3
@@ -62,29 +62,46 @@ def taskProcess(credentials, pos):
 def verify_local_data(credentials, dataPath = "data/"):
     if dataPath[-1] != "/":
         dataPath += "/"
+
+    if not path.exists(dataPath):
+        mkdir(dataPath)
     
     s3 = boto3.resource('s3', aws_access_key_id=credentials['aws_access_key_id'], aws_secret_access_key=credentials['aws_secret_access_key'], region_name="us-east-2")
     aludata = s3.Bucket('aludata')
-    if not path.exists(dataPath):
-        mkdir(dataPath)
-    for s in SPECIES:
-        if not path.exists(dataPath + s):
-            mkdir(dataPath + s)
-    filelist = {file.key for file in aludata.objects.all()}
-    for file in filelist:
-        #TODO: check if local file len matches server file len
-        filepath = dataPath + file.split("_")[0] + "/" + file
-        if not path.exists(filepath):
-            print("Missing: " + filepath)
-            aludata.download_file(file, filepath)
     
-    filelist = {file for species_list in [listdir(dataPath + s) for s in SPECIES] for file in species_list}
-    uploaded = {file.key for file in aludata.objects.all()}
-    if filelist == uploaded:
-        print("All local data has been verified")
-    else:
-        print("Error in verifying local data")
-        exit()
+    #download json form server
+    aludata.download_file("data_structure.json", dataPath + "/data_structure.json")
+    fileDict = json.load(open(dataPath + "/data_structure.json", "r"))
+    
+    #check if json matches filepaths
+    download = False
+    for s in tqdm(SPECIES, desc="Progress verifying species:",position=0):
+        if download:
+            break
+        if not path.exists(dataPath + s):
+            download = True
+            break
+        for file, size in tqdm(zip(fileDict[s]['names'], fileDict[s]['lens']), desc=s, position=1, leave=False, total=len(fileDict[s]['names'])):
+            filePath = path.join(dataPath, s, file)
+            if not path.exists(filePath):
+                download = True
+                break
+            if len(pickle.load(open(filePath, "rb"))) != size:
+                download = True
+                break
+    
+    if download:
+        print("Missing or malformed local data. Deleting and redownloading")
+        import shutil
+        shutil.rmtree(dataPath)
+        mkdir(dataPath)
+        from zipfile import ZipFile
+        aludata.download_file("data.zip", path.join(dataPath, "data.zip"))
+        with ZipFile(path.join(dataPath, "data.zip"), "r") as zip_file:
+            zip_file.extractall(dataPath)
+        #unzip
+    
+    print("All local data has been verified")
 
 #TODO: Argument parsing https://stackabuse.com/command-line-arguments-in-python/
 if __name__ == "__main__":
@@ -93,10 +110,10 @@ if __name__ == "__main__":
     with open(credentialFile, "r") as f:
         credentials = json.load(f)
     verify_local_data(credentials, dataPath)
-    processes = []
-    # initialize all processes, then iterate and start
-    for i in range(mp.cpu_count()//2 - 1):
-        processes.append(mp.Process(target=taskProcess, args=(credentials, i)))
+    # processes = []
+    # # initialize all processes, then iterate and start
+    # for i in range(mp.cpu_count()//2 - 1):
+    #     processes.append(mp.Process(target=taskProcess, args=(credentials, i)))
 
-    for p in processes:
-        p.start()
+    # for p in processes:
+    #     p.start()
