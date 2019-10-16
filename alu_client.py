@@ -24,7 +24,6 @@ def get_location(description):
 
 def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY, pb):
     k_heap = []
-    heapq.heapify(k_heap) 
     species1_records = pickle.load(open("data/" + awstask.species1 + "/" + awstask.species1 + "_" + awstask.subfamily + ".p", "rb"))
     species2_records = pickle.load(open("data/" + awstask.species2 + "/" + awstask.species2 + "_" + awstask.subfamily + ".p", "rb"))
     for i in awstask.indicies:
@@ -33,18 +32,17 @@ def run_task(awstask, results_url, ACCESS_KEY, SECRET_KEY, pb):
         for sequence2 in species2_records:
             k_new = w(str(sequence2.seq))["optimal_alignment_score"]
             match = sequence2    
-            if not k_heap: 
-                hq.heappush(k_heap, (k_new, match))
-            else: 
-                min_k = min(k_heap)[0]
-                if k_new > min_k:
-                    hq.heapreplace(k_heap, (k_new, match))
+            if len(k_heap) < 5: 
+                hq.heappush(k_heap, (k_new, match.description, match))
+            elif k_new > k_heap[0][0]:
+                hq.heapreplace(k_heap, (k_new, match.description, match))
+        hq.heapify(k_heap)
         if k_heap: 
-            data = [[i], location1]
             location1 = get_location(sequence1.description)
-            for k in reversed(k_heap):
-                location2 = get_location(k[1].description)
-                data.append(np.concatenate([location2, [k]]))
+            data = [[i], location1]
+            for k in reversed(sorted(k_heap)):
+                location2 = get_location(k[2].description)
+                data.append(np.concatenate([location2, [k[0]]]))
         awstask.datas.append(list(np.concatenate(data)))
         pb.update(1)
     # print("Completed task: {} - {} - {} with {} indicies. Pushing now...".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
@@ -117,11 +115,12 @@ if __name__ == "__main__":
     credentialFile = "awscredentials.json"
     with open(credentialFile, "r") as f:
         credentials = json.load(f)
-    verify_local_data(credentials, dataPath)
-    # processes = []
-    # # initialize all processes, then iterate and start
-    # for i in range(mp.cpu_count()//2 - 1):
-    #     processes.append(mp.Process(target=taskProcess, args=(credentials, i)))
+    # verify_local_data(credentials, dataPath)
 
-    # for p in processes:
-    #     p.start()
+    # initialize all processes, then iterate and start
+    processes = []
+    for i in range(mp.cpu_count()//2 - 1):
+        processes.append(mp.Process(target=taskProcess, args=(credentials, i)))
+    for p in processes:
+        p.start()
+    # taskProcess(credentials, 0)
