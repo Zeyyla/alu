@@ -62,3 +62,7 @@ class awsTask():
     def fromTask(task, indicies):
         return awsTask(task.species1, task.species2, task.subfamily, indicies)
 
+class CompressedSeq():
+    def __init__(self, seq, desc):
+        self.seq = seq
+        self.description = desc
