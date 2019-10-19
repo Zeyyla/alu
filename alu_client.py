@@ -12,6 +12,7 @@ import json
 from skbio.alignment import StripedSmithWaterman
 from tqdm import tqdm
 import heapq as hq
+from functools import partial
 
 def get_location(description):
     location = description.split(' ')[1].split(':')
@@ -91,7 +92,7 @@ def verify_local_data(params):
 
     #check if json matches filepaths
     download = False
-    for s in tqdm(SPECIES, desc="Checking if files exist:",position=0):
+    for s in tqdm(SPECIES, desc="Checking if files exist",position=0):
         if not path.exists(dataPath + s):
             download = True
             break
@@ -106,7 +107,7 @@ def verify_local_data(params):
         return
 
     print("All files exist. Verifying file sizes...")
-    for s in tqdm(SPECIES, desc="Progress verifying files:",position=0):
+    for s in tqdm(SPECIES, desc="Progress verifying files",position=0):
         if download:
             break
         for file, lines in tqdm(zip(fileDict[s]['names'], fileDict[s]['lens']), desc=s, position=1, leave=False, total=len(fileDict[s]['names'])):
@@ -131,10 +132,6 @@ if __name__ == "__main__":
     with mp.Pool(1) as p:
         r = p.map(verify_local_data, [params])
 
-    # initialize all processes, then iterate and start
-    print("Initializing threads...")
-    processes = []
-    for i in range(mp.cpu_count()//2 - 1):
-        processes.append(mp.Process(target=taskProcess, args=(params, i)))
-    for p in processes:
-        p.start()
+    num_processes = mp.cpu_count()//2 - 1
+    with mp.Pool(num_processes) as p:
+        p.map(partial(taskProcess, params), range(num_processes))
