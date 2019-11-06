@@ -32,14 +32,14 @@ def run_task(awstask, params, pb):
             k_new = w(str(sequence2['seq']))["optimal_alignment_score"]
             match = sequence2    
             if len(k_heap) < 5: 
-                hq.heappush(k_heap, (k_new, match['description'], match))
+                hq.heappush(k_heap, (k_new, match['description']))
             elif k_new > k_heap[0][0]:
-                hq.heapreplace(k_heap, (k_new, match['description'], match))
+                hq.heapreplace(k_heap, (k_new, match['description']))
         if k_heap: 
             location1 = get_location(sequence1['description'])
             data = [[i], location1]
             for k in reversed(sorted(k_heap)):
-                location2 = get_location(k[2]['description'])
+                location2 = get_location(k[1])
                 data.append(np.concatenate([location2, [k[0]]]))
         awstask.datas.append(list(np.concatenate(data)))
         pb.update(1)
