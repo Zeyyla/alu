@@ -57,6 +57,11 @@ def taskProcess(params, pos):
         if "Messages" not in response.keys():
             time.sleep(1800)
             continue
+        #should I try to update the client on the fly?
+        # if response['Messages'][0]['Body'] == "newclient":
+        #     s3 = boto3.resource('s3', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'], region_name="us-east-2")
+        #     aludata = s3.Bucket('aludata')
+        # download file, need to have a client version tag in s3 and with the result uploads
         awstask = awsTask.fromDict(json.loads(response['Messages'][0]['Body']))
         desc = "{} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies))
         with tqdm(total=len(awstask.indicies), position=pos, desc=desc, unit="match") as pb:

@@ -5,6 +5,7 @@ import json
 import shutil
 from os import mkdir
 import csv
+import numpy as np
 
 try:
 	shutil.rmtree("tasks")
@@ -25,5 +26,5 @@ for task in tasks:
 	total = data_structure[species1]['lens'][species1_data]
 	t = Task(species1, species2, subfamily, total)
 	json.dump(t.getDict(), open("tasks/"+t.filename(), "w+"))
-	wr = csv.writer(open("results/"+task.filename(), "w+", newline=''), quoting=csv.QUOTE_ALL)
-        wr.writerow(names)
+	wr = csv.writer(open("results/"+t.filename(), "w+", newline=''), quoting=csv.QUOTE_ALL)
+	wr.writerow(names)

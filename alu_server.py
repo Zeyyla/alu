@@ -62,8 +62,6 @@ def verify_server_data(params):
         #TODO: chack params
         aludata.upload_file("data.zip", path.join(dataPath, "data.zip"), Callback=t.update)
 
-
-    
 #TODO error handling
 def process_responses(params, responses):
     if "Messages" not in responses.keys():
@@ -74,9 +72,8 @@ def process_responses(params, responses):
         print("Recieved task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
         task = json.load(open("tasks/" + Task.aws_to_task(awstask).replace(".p", ".json"), "r"))
         task = Task(task["species1"], task["species2"], task["subfamily"], task["total"], task["completed"], task["remaining"], task["candidates"])
-        names = np.concatenate([['ind', 'c0', 's0', 'e0']]+[["c"+str(i), "s"+str(i), "e"+str(i), "sw"+str(i)] for i in range(1,6)])
         with open("results/"+task.filename().replace(".json",".csv"), "r+") as resultFile:
-            df = pd.read_csv(resultFile, names=names)
+            df = pd.read_csv(resultFile)
         completed = set(df["ind"])
         datas = [awstask.datas[i] for i in range(len(awstask.datas)) if awstask.datas[i][0] not in completed]
         wr = csv.writer(open("results/"+task.filename().replace(".json",".csv"), "a+", newline=''), quoting=csv.QUOTE_NONNUMERIC)
