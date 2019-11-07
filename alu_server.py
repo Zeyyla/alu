@@ -72,7 +72,7 @@ def process_responses(params, responses):
         print("Recieved task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
         task = json.load(open(os.path.join(params["task_path"], Task.aws_to_task(awstask)), "r"))
         task = Task(task["species1"], task["species2"], task["subfamily"], task["total"], task["completed"], task["remaining"], task["candidates"])
-        with open(os.path.join(params["result_path"],+task.filename().replace(".json",".csv")), "r") as resultFile:
+        with open(os.path.join(params["result_path"], task.filename().replace(".json",".csv")), "r") as resultFile:
             df = pd.read_csv(resultFile)
         completed = set(df["ind"])
         datas = [awstask.datas[i] for i in range(len(awstask.datas)) if awstask.datas[i][0] not in completed]
@@ -124,7 +124,7 @@ def verify_task_consistency(taskFile):
         return
     task = json.load(open(os.path.join(params["task_path"], taskFile), "r"))
     task = Task(task["species1"], task["species2"], task["subfamily"], task["total"], task["completed"], task["remaining"], task["candidates"])
-    resultFile = os.path.join(params["result_path"]+task.filename().replace(".json",".csv"))
+    resultFile = os.path.join(params["result_path"], task.filename().replace(".json",".csv"))
     if os.path.exists(resultFile):
         names = np.concatenate([["ind"]] + [["c"+str(i), "s"+str(i), "e"+str(i)] for i in range(6)])
         df = pd.read_csv(resultFile, names=names)
