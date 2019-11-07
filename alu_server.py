@@ -23,8 +23,8 @@ def verify_server_data(params):
     2) check if size of zip matches size of server zip
     3) if not, reupload
     '''
-    zipPath = os.path.join(params['datapath'], "data.zip")
-    jsonPath = os.path.join(params['datapath'], "data_structure.json")
+    zipPath = os.path.join(params['data_path'], "data.zip")
+    jsonPath = os.path.join(params['data_path'], "data_structure.json")
 
     if not os.path.exists(zipPath):
         print("Please compress data files into 'data.zip'")
@@ -66,20 +66,20 @@ def verify_server_data(params):
 def process_responses(params, responses):
     if "Messages" not in responses.keys():
         return
-    sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'])
+    sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'], region_name="us-east-2")
     for msg in responses['Messages']:
         awstask = awsTask.fromDict(json.loads(msg['Body']))
         print("Recieved task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
-        task = json.load(open("tasks/" + Task.aws_to_task(awstask).replace(".p", ".json"), "r"))
+        task = json.load(open(os.path.join(params["task_path"], Task.aws_to_task(awstask)), "r"))
         task = Task(task["species1"], task["species2"], task["subfamily"], task["total"], task["completed"], task["remaining"], task["candidates"])
-        with open("results/"+task.filename().replace(".json",".csv"), "r+") as resultFile:
+        with open(os.path.join(params["result_path"],+task.filename().replace(".json",".csv")), "r") as resultFile:
             df = pd.read_csv(resultFile)
         completed = set(df["ind"])
         datas = [awstask.datas[i] for i in range(len(awstask.datas)) if awstask.datas[i][0] not in completed]
-        wr = csv.writer(open("results/"+task.filename().replace(".json",".csv"), "a+", newline=''), quoting=csv.QUOTE_NONNUMERIC)
+        wr = csv.writer(open(os.path.join(params["result_path"]+task.filename().replace(".json",".csv")), "a+", newline=''), quoting=csv.QUOTE_NONNUMERIC)
         wr.writerows(datas)
         task.update(awstask)
-        json.dump(task.getDict(), open("tasks/" + task.filename(), "w"))
+        json.dump(task.getDict(), open(os.path.join(params["task_path"], task.filename()), "w"))
         print("Task {} - {} - {} is {}%% done".format(task.species1, task.species2, task.subfamily, task.num_completed()/task.total))
         nextTask = generate_aws_task(awstask)
         if nextTask is not None:
@@ -92,16 +92,16 @@ def process_responses(params, responses):
         sqs.delete_message(QueueUrl=params['results_url'], ReceiptHandle=msg['ReceiptHandle'])
 
 def generate_starter_aws_tasks(params, size=50):
-    sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'])
+    sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'], region_name="us-east-2")
     attributes = sqs.get_queue_attributes(QueueUrl=params['task_url'], AttributeNames=["ApproximateNumberOfMessages"])
     approxQueueSize = int(attributes['Attributes']['ApproximateNumberOfMessages'])
     print("We have {} tasks.".format(approxQueueSize))
     if approxQueueSize < 1000:
         print("That's not enough - adding more tasks.")
-        for taskFile in os.listdir("tasks/"):
+        for taskFile in os.listdir(params["task_path"],):
             if ".json" not in taskFile:
                 continue
-            t = json.load(open("tasks/" + taskFile, "r"))
+            t = json.load(open(os.path.join(params["task_path"], taskFile), "r"))
             t = Task(t['species1'], t['species2'], t['subfamily'], t['total'], t['completed'], t['remaining'], t['candidates'],)
             awstask = t.get_aws_task(size)
             if awstask is not None:
@@ -110,7 +110,7 @@ def generate_starter_aws_tasks(params, size=50):
         print("Added a bunch of tasks.")        
 
 def generate_aws_task(prevAWSTask):
-    task = json.load(open("tasks/" + Task.aws_to_task(prevAWSTask), "r"))
+    task = json.load(open(os.path.join(params["task_path"], Task.aws_to_task(prevAWSTask)), "r"))
     task = Task(task["species1"], task["species2"], task["subfamily"], task["total"], task["completed"], task["remaining"], task["candidates"])
     size = len(prevAWSTask.indicies)
     return task.get_aws_task(size)
@@ -122,9 +122,9 @@ def get_len(file):
 def verify_task_consistency(taskFile):
     if ".json" not in taskFile:
         return
-    task = json.load(open("tasks/" + taskFile, "r"))
+    task = json.load(open(os.path.join(params["task_path"], taskFile), "r"))
     task = Task(task["species1"], task["species2"], task["subfamily"], task["total"], task["completed"], task["remaining"], task["candidates"])
-    resultFile = "results/" + task.filename() + ".csv"
+    resultFile = os.path.join(params["result_path"]+task.filename().replace(".json",".csv"))
     if os.path.exists(resultFile):
         names = np.concatenate([["ind"]] + [["c"+str(i), "s"+str(i), "e"+str(i)] for i in range(6)])
         df = pd.read_csv(resultFile, names=names)
@@ -136,17 +136,17 @@ def verify_task_consistency(taskFile):
             task.candidates = {i for i in range(task.total)}
             task.remaining.difference_update(completed)
             task.candidates.difference_update(completed)
-            json.dump(task, open("tasks/" + taskFile, "w"))
+            json.dump(task, open(os.path.join(params["task_path"], taskFile), "w"))
     else:
         if task.completed != set():
             task.completed = set()
             task.remaining = {i for i in range(task.total)}
-            json.dump(task, open("tasks/" + taskFile, "w"))
+            json.dump(task, open(os.path.join(params["task_path"], taskFile), "w"))
 
 def verify_internal_consistency():
     print("Verifying internal task consistency...")
     with mp.Pool(mp.cpu_count() - 1) as p:
-        [_ for _ in p.map(verify_task_consistency, os.listdir("tasks/"))]
+        [_ for _ in p.map(verify_task_consistency, os.listdir(params["task_path"]))]
     print("Task consistency verified.")
 
 if __name__ == "__main__":
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     # verify_server_data(params)
     # verify_internal_consistency()
     generate_starter_aws_tasks(params)
-    sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'])
+    sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'], region_name="us-east-2")
     while True:
         attributes = sqs.get_queue_attributes(QueueUrl=params['results_url'], AttributeNames=["ApproximateNumberOfMessages"])
         approxQueueSize = int(attributes['Attributes']['ApproximateNumberOfMessages'])
