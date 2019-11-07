@@ -22,10 +22,10 @@ def get_location(description):
 #TODO: messagefn with params
 
 def run_task(awstask, params, pb):
-    k_heap = []
     species1_records = json.load(open(params['datapath'] + awstask.species1 + "/" + awstask.species1 + "_" + awstask.subfamily + ".json", "rb"))
     species2_records = json.load(open(params['datapath'] + awstask.species2 + "/" + awstask.species2 + "_" + awstask.subfamily + ".json", "rb"))
     for i in awstask.indicies:
+        k_heap = []
         sequence1 = species1_records[i]
         w = StripedSmithWaterman(str(sequence1['seq']), score_only=True)
         for sequence2 in species2_records:

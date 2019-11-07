@@ -74,14 +74,15 @@ def process_responses(params, responses):
         print("Recieved task: {} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies)))
         task = json.load(open("tasks/" + Task.aws_to_task(awstask).replace(".p", ".json"), "r"))
         task = Task(task["species1"], task["species2"], task["subfamily"], task["total"], task["completed"], task["remaining"], task["candidates"])
-        names = np.concatenate([["ind"]] + [["c"+str(i), "s"+str(i), "e"+str(i)] for i in range(6)])
-        df = pd.read_csv(resultFile, names=names)
+        names = np.concatenate([['ind', 'c0', 's0', 'e0']]+[["c"+str(i), "s"+str(i), "e"+str(i), "sw"+str(i)] for i in range(1,6)])
+        with open("results/"+task.filename().replace(".json",".csv"), "r+") as resultFile:
+            df = pd.read_csv(resultFile, names=names)
         completed = set(df["ind"])
         datas = [awstask.datas[i] for i in range(len(awstask.datas)) if awstask.datas[i][0] not in completed]
-        wr = csv.writer(open("results/" + task.filename() + ".csv", "a+", newline=''), quoting=csv.QUOTE_ALL)
+        wr = csv.writer(open("results/"+task.filename().replace(".json",".csv"), "a+", newline=''), quoting=csv.QUOTE_NONNUMERIC)
         wr.writerows(datas)
         task.update(awstask)
-        json.dump(task, open("tasks/" + task.filename(), "w"))
+        json.dump(task.getDict(), open("tasks/" + task.filename(), "w"))
         print("Task {} - {} - {} is {}%% done".format(task.species1, task.species2, task.subfamily, task.num_completed()/task.total))
         nextTask = generate_aws_task(awstask)
         if nextTask is not None:
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     credentialFile = "awsServerCredentials.json"
     params = json.load(open(credentialFile, "r"))
     # verify_server_data(params)
-    verify_internal_consistency()
+    # verify_internal_consistency()
     generate_starter_aws_tasks(params)
     sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'])
     while True:
