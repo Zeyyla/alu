@@ -13,6 +13,7 @@ from skbio.alignment import StripedSmithWaterman
 from tqdm import tqdm
 import heapq as hq
 from functools import partial
+import time
 
 def get_location(description):
     location = description.split(' ')[1].split(':')
@@ -53,6 +54,9 @@ def taskProcess(params, pos):
     while True:
         sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'], region_name="us-east-2")
         response = sqs.receive_message(QueueUrl=params['task_url'], MaxNumberOfMessages=1, VisibilityTimeout=3600, WaitTimeSeconds=20)
+        if "Messages" not in response.keys():
+            time.sleep(1800)
+            continue
         awstask = awsTask.fromDict(json.loads(response['Messages'][0]['Body']))
         desc = "{} - {} - {} with {} indicies".format(awstask.species1, awstask.species2, awstask.subfamily, len(awstask.indicies))
         with tqdm(total=len(awstask.indicies), position=pos, desc=desc, unit="match") as pb:
@@ -132,6 +136,6 @@ if __name__ == "__main__":
     with mp.Pool(1) as p:
         r = p.map(verify_local_data, [params])
 
-    num_processes = mp.cpu_count()//2 - 1
+    num_processes = mp.cpu_count()//2
     with mp.Pool(num_processes) as p:
         p.map(partial(taskProcess, params), range(num_processes))
