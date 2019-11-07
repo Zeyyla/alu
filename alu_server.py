@@ -76,7 +76,7 @@ def process_responses(params, responses):
             df = pd.read_csv(resultFile)
         completed = set(df["ind"])
         datas = [awstask.datas[i] for i in range(len(awstask.datas)) if awstask.datas[i][0] not in completed]
-        wr = csv.writer(open(os.path.join(params["result_path"]+task.filename().replace(".json",".csv")), "a+", newline=''), quoting=csv.QUOTE_NONNUMERIC)
+        wr = csv.writer(open(os.path.join(params["result_path"], task.filename().replace(".json",".csv")), "a+", newline=''), quoting=csv.QUOTE_NONNUMERIC)
         wr.writerows(datas)
         task.update(awstask)
         json.dump(task.getDict(), open(os.path.join(params["task_path"], task.filename()), "w"))
@@ -163,7 +163,7 @@ if __name__ == "__main__":
         if approxQueueSize < 100:
             print("Waiting for more responses...")
             #TODO: estimate time till a decent number of tasks and then sleep (some weighted rate calculation)
-            time.sleep(30)
+            time.sleep(300)
         else:
             for _ in range(approxQueueSize//10):
                 response = sqs.receive_message(QueueUrl=params["results_url"], MaxNumberOfMessages=10, WaitTimeSeconds=20)
