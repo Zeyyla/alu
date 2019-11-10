@@ -69,6 +69,15 @@ def taskProcess(params, pos):
             sqs.delete_message(QueueUrl=params['task_url'], ReceiptHandle=response['Messages'][0]['ReceiptHandle'])
             pb.set_description("Pushed {} - {} - {} with messageID: {}".format(awstask.species1, awstask.species2, awstask.subfamily, messageID))
 
+def verify_file_size(dataPath, fileDict, s):
+    download = False
+    for file, lines in zip(fileDict[s]['names'], fileDict[s]['lens']):
+        filePath = path.join(dataPath, s, file)
+        if len(json.load(open(filePath, "rb"))) != lines:
+            download = True
+            break
+    return download
+
 def verify_local_data(params):
     dataPath = params['datapath']
 
@@ -116,15 +125,11 @@ def verify_local_data(params):
         return
 
     print("All files exist. Verifying file sizes...")
-    for s in tqdm(SPECIES, desc="Progress verifying files",position=0):
-        if download:
-            break
-        for file, lines in tqdm(zip(fileDict[s]['names'], fileDict[s]['lens']), desc=s, position=1, leave=False, total=len(fileDict[s]['names'])):
-            filePath = path.join(dataPath, s, file)
-            if len(json.load(open(filePath, "rb"))) != lines:
-                download = True
-                break
+    verifier = partial(verify_file_size, dataPath, fileDict)
+    with mp.Pool(mp.cpu_count()//2) as p:
+        downloads = [r for r in p.imap_unordered(verifier, tqdm(SPECIES, desc="Progress verifying files",position=0))]
     
+    download = sum(downloads)
     if download:
         print("Malformed local data. Deleting and redownloading")
         download_data()
@@ -138,8 +143,10 @@ if __name__ == "__main__":
         params = json.load(f)
 
     #somehow verify_local_data interferes with other processes, so I'm isolating with with mp
-    with mp.Pool(1) as p:
-        r = p.map(verify_local_data, [params])
+    # with mp.Pool(1) as p:
+    #     r = p.map(verify_local_data, [params])
+
+    verify_local_data(params)
 
     num_processes = mp.cpu_count()//2
     with mp.Pool(num_processes) as p:
