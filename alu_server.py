@@ -79,9 +79,9 @@ def process_responses(params, responses):
         wr = csv.writer(open(os.path.join(params["result_path"], task.filename().replace(".json",".csv")), "a+", newline=''), quoting=csv.QUOTE_NONNUMERIC)
         wr.writerows(datas)
         task.update(awstask)
-        json.dump(task.getDict(), open(os.path.join(params["task_path"], task.filename()), "w"))
         print("Task {} - {} - {} is {}%% done".format(task.species1, task.species2, task.subfamily, 100*task.num_completed()/task.total))
-        nextTask = generate_aws_task(awstask)
+        nextTask = awstask.get_aws_task(size)
+        json.dump(task.getDict(), open(os.path.join(params["task_path"], task.filename()), "w"))
         if nextTask is not None:
             nextMsg = json.dumps(nextTask.__dict__)
             response = sqs.send_message(QueueUrl=params["task_url"], MessageBody=nextMsg)
@@ -108,14 +108,6 @@ def generate_starter_aws_tasks(params, size=50):
                 msg = json.dumps(awstask.__dict__)
                 sqs.send_message(QueueUrl=params['task_url'], MessageBody=msg)
         print("Added a bunch of tasks.")        
-
-def generate_aws_task(prevAWSTask):
-    task = json.load(open(os.path.join(params["task_path"], Task.aws_to_task(prevAWSTask)), "r"))
-    task = Task(task["species1"], task["species2"], task["subfamily"], task["total"], task["completed"], task["remaining"], task["candidates"])
-    size = len(prevAWSTask.indicies)
-    nT = task.get_aws_task(size)
-    json.dump(task.getDict(), open(os.path.join(params["task_path"], task.filename()), "w"))
-    return nT
 
 def get_len(file):
     species1 = file.split("_")[0] 

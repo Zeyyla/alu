@@ -5,14 +5,14 @@ SPECIES = ['Greens', 'Gorillas', 'Orangutans', 'Bushbaby', 'Humans', 'Bonobos', 
 SUBFAMILIES = ["AluJb", "AluJo", "AluJr", "AluJr4", "AluSc", "AluSc5", "AluSc8", "AluSg", "AluSg4", "AluSg7", "AluSp", "AluSq", "AluSq10", "AluSq2", "AluSq4", "AluSx", "AluSx1", "AluSx3", "AluSx4", "AluSz", "AluSz6", "AluY"]
 
 class Task():
-    def __init__(self, species1, species2, subfamily, total = None, completed = [], remaining = [], candidates = []):
+    def __init__(self, species1, species2, subfamily, total = None, completed = None, remaining = None, candidates = None):
         self.species1 = species1
         self.species2 = species2
         self.subfamily = subfamily
         self.total = total or len(pickle.load(file=open("data/"+self.species1 + "/" + self.species1+"_"+self.subfamily + ".json", "rb")))
-        self.completed = set(completed) or set()
-        self.remaining = set(remaining) or {i for i in range(self.total)}
-        self.candidates = set(candidates) or {i for i in range(self.total)}
+        self.completed = set(completed) if completed is not None else set()
+        self.remaining = set(remaining) if remaining is not None else {i for i in range(self.total)}
+        self.candidates = set(candidates) if candidates is not None else {i for i in range(self.total)}
 
     def filename(self):
         return self.species1 + "_" + self.species2 + "_" + self.subfamily + ".json"
