@@ -78,8 +78,8 @@ def process_responses(params, responses):
         wr = csv.writer(open(os.path.join(params["result_path"], task.filename().replace(".json",".csv")), "a+", newline=''), quoting=csv.QUOTE_NONNUMERIC)
         wr.writerows(datas)
         task.update(awstask)
-        print("Task {} - {} - {} is {}%% done".format(task.species1, task.species2, task.subfamily, task.num_completed()/task.total))
-        nextTask = awstask.get_aws_task(size)
+        print("Task {} - {} - {} is {}%% done".format(task.species1, task.species2, task.subfamily, 100*task.num_completed()/task.total))
+        nextTask = task.get_aws_task(len(awstask.indicies))
         json.dump(task.getDict(), open(os.path.join(params["task_path"], task.filename()), "w"))
         if nextTask is not None:
             nextMsg = json.dumps(nextTask.__dict__)
@@ -147,18 +147,17 @@ if __name__ == "__main__":
     params = json.load(open(credentialFile, "r"))
     # verify_server_data(params)
     # verify_internal_consistency()
-    generate_starter_aws_tasks(params)
+    # generate_starter_aws_tasks(params)
     sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'], region_name="us-east-2")
     while True:
-        attributes = sqs.get_queue_attributes(QueueUrl=params['results_url'], AttributeNames=["ApproximateNumberOfMessages"])
-        approxQueueSize = int(attributes['Attributes']['ApproximateNumberOfMessages'])
-        print("We have {} completed tasks waiting.".format(approxQueueSize))
-        if approxQueueSize < 100:
-            print("Waiting for more responses...")
-            #TODO: estimate time till a decent number of tasks and then sleep (some weighted rate calculation)
-            time.sleep(300)
-        else:
-            for _ in range(approxQueueSize//10):
-                response = sqs.receive_message(QueueUrl=params["results_url"], MaxNumberOfMessages=10, WaitTimeSeconds=20)
-                process_responses(params, response)
-    
+        # attributes = sqs.get_queue_attributes(QueueUrl=params['results_url'], AttributeNames=["ApproximateNumberOfMessages"])
+        # approxQueueSize = int(attributes['Attributes']['ApproximateNumberOfMessages'])
+        # print("We have {} completed tasks waiting.".format(approxQueueSize))
+        # if approxQueueSize < 100:
+        #     print("Waiting for more responses...")
+        #     #TODO: estimate time till a decent number of tasks and then sleep (some weighted rate calculation)
+        #     time.sleep(300)
+        # else:
+        # for _ in range(approxQueueSize//10):
+        response = sqs.receive_message(QueueUrl=params["results_url"], MaxNumberOfMessages=10, WaitTimeSeconds=20)
+        process_responses(params, response)
