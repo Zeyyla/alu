@@ -12,7 +12,6 @@ import pandas as pd
 from zipfile import ZipFile
 
 
-
 #TODO: check if local file len matches server file len (tags)
 #TODO: create a json file on the server that stores structure and size information
 def verify_server_data(params):
