@@ -80,7 +80,7 @@ def process_responses(params, responses):
         wr.writerows(datas)
         task.update(awstask)
         print("Task {} - {} - {} is {}%% done".format(task.species1, task.species2, task.subfamily, 100*task.num_completed()/task.total))
-        nextTask = awstask.get_aws_task(size)
+        nextTask = task.get_aws_task(len(awstask.indicies))
         json.dump(task.getDict(), open(os.path.join(params["task_path"], task.filename()), "w"))
         if nextTask is not None:
             nextMsg = json.dumps(nextTask.__dict__)
@@ -148,7 +148,7 @@ if __name__ == "__main__":
     params = json.load(open(credentialFile, "r"))
     # verify_server_data(params)
     # verify_internal_consistency()
-    generate_starter_aws_tasks(params)
+    # generate_starter_aws_tasks(params)
     sqs = boto3.client('sqs', aws_access_key_id=params['aws_access_key_id'], aws_secret_access_key=params['aws_secret_access_key'], region_name="us-east-2")
     while True:
         # attributes = sqs.get_queue_attributes(QueueUrl=params['results_url'], AttributeNames=["ApproximateNumberOfMessages"])

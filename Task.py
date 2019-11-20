@@ -12,7 +12,9 @@ class Task():
         self.total = total or len(pickle.load(file=open("data/"+self.species1 + "/" + self.species1+"_"+self.subfamily + ".json", "rb")))
         self.completed = set(completed) if completed is not None else set()
         self.remaining = set(remaining) if remaining is not None else {i for i in range(self.total)}
+        self.remaining.difference_update(self.completed)
         self.candidates = set(candidates) if candidates is not None else {i for i in range(self.total)}
+        self.candidates.difference_update(self.completed)
 
     def filename(self):
         return self.species1 + "_" + self.species2 + "_" + self.subfamily + ".json"
